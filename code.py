@@ -313,7 +313,7 @@ if old_file:
                 if st.session_state.verification_done and st.session_state.results_df is not None:
                     results_df = st.session_state.results_df
                     
-                    # Statistiques avec style (version que vous aimez)
+                    # Statistiques avec style
                     st.subheader("📊 Résumé de la vérification CKD")
                     
                     col1, col2, col3, col4, col5 = st.columns(5)
@@ -322,7 +322,6 @@ if old_file:
                     erreurs = len(results_df[results_df["Result_Display"].str.contains("ERREUR", na=False)])
                     manques = len(results_df[results_df["Result_Display"].str.contains("MANQUE", na=False)])
                     trop = len(results_df[results_df["Result_Display"].str.contains("TROP", na=False)])
-                    no_need = len(results_df[results_df["Result_Display"].str.contains("NO NEED", na=False)])
                     
                     with col1:
                         st.metric("📊 Total", total)
@@ -337,17 +336,15 @@ if old_file:
                     
                     st.markdown("---")
                     
-                    # Checkbox pour filtrer
-                    def toggle_filter():
-                        st.session_state.show_problems = not st.session_state.show_problems
-                        st.rerun()
+                    # Checkbox pour filtrer - SANS CALLBACK
+                    show_problems = st.checkbox(
+                        "⚠️ Afficher uniquement les lignes non conformes", 
+                        value=st.session_state.show_problems,
+                        key="filter_checkbox"
+                    )
                     
-                    col_check, col_info = st.columns([1, 3])
-                    with col_check:
-                        st.checkbox("⚠️ Afficher uniquement les lignes non conformes", 
-                                   value=st.session_state.show_problems,
-                                   on_change=toggle_filter,
-                                   key="filter_checkbox")
+                    # Mettre à jour session state
+                    st.session_state.show_problems = show_problems
                     
                     st.subheader("🔍 Détail de la vérification CKD")
                     
