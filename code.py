@@ -9,6 +9,14 @@ st.set_page_config(page_title="CKD Position Validator", layout="wide")
 st.markdown("# 📺 Vérificateur de Positions CKD")
 st.markdown("Vérifie que le nombre de positions correspond à la quantité pour les composants CKD uniquement")
 
+# Initialiser session state
+if 'show_problems' not in st.session_state:
+    st.session_state.show_problems = False
+if 'results_df' not in st.session_state:
+    st.session_state.results_df = None
+if 'verification_done' not in st.session_state:
+    st.session_state.verification_done = False
+
 # Upload du fichier BOM
 old_file = st.file_uploader("📂 Upload votre fichier BOM", type=["xlsx"])
 
@@ -90,31 +98,25 @@ def validate_ckd_positions(df):
         nb_positions = len(positions)
         positions_str = safe_join(positions)
         
-        # Déterminer le résultat avec des codes simples
+        # Déterminer le résultat
         if is_non_comp:
-            result_text = "NO NEED"
             result_detail = "📌 NO NEED / NOT APPLICABLE"
-            is_problem = False
+            status_code = 0  # Non applicable
         elif nb_positions == 0 and qty == 0:
-            result_text = "VIDE"
             result_detail = "✅ VIDE"
-            is_problem = False
+            status_code = 1  # Vide
         elif nb_positions == 0 and qty > 0:
-            result_text = "ERREUR"
             result_detail = "❌ ERREUR - Aucune position"
-            is_problem = True
+            status_code = 2  # Erreur
         elif nb_positions == qty:
-            result_text = "CONFORME"
             result_detail = "✅ CONFORME"
-            is_problem = False
+            status_code = 3  # Conforme
         elif nb_positions < qty:
-            result_text = "MANQUE"
             result_detail = f"⚠️ MANQUE - {int(qty - nb_positions)} position(s) manquante(s)"
-            is_problem = True
+            status_code = 4  # Manque
         else:
-            result_text = "TROP"
             result_detail = f"⚠️ TROP - {int(nb_positions - qty)} position(s) en excès"
-            is_problem = True
+            status_code = 5  # Trop
         
         results.append({
             "PN": pn,
@@ -123,8 +125,7 @@ def validate_ckd_positions(df):
             "Position": positions_str,
             "QTY Calculated": nb_positions,
             "Result": result_detail,
-            "Status": result_text,  # Colonne pour le filtrage
-            "IsProblem": is_problem  # Colonne booléenne pour le filtrage
+            "Status_code": status_code
         })
     
     return pd.DataFrame(results)
@@ -133,28 +134,25 @@ def export_to_colored_excel(df, filename):
     output = io.BytesIO()
     
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Enlever la colonne IsProblem et Status pour l'export
-        export_df = df.drop(columns=['IsProblem', 'Status'], errors='ignore')
-        export_df.to_excel(writer, sheet_name='Verification_CKD', index=False)
+        df.to_excel(writer, sheet_name='Verification_CKD', index=False)
         
         workbook = writer.book
         worksheet = writer.sheets['Verification_CKD']
         
-        # Parcourir les lignes et colorer selon le résultat
         for row in range(2, worksheet.max_row + 1):
-            status_cell = worksheet.cell(row=row, column=6)  # Colonne Result
+            status_cell = worksheet.cell(row=row, column=6)
             status = status_cell.value
             
             if "CONFORME" in str(status):
-                color = "C6EFCE"  # Vert
+                color = "C6EFCE"
             elif "ERREUR" in str(status):
-                color = "FFC7CE"  # Rouge
+                color = "FFC7CE"
             elif "MANQUE" in str(status) or "TROP" in str(status):
-                color = "FFEB9C"  # Jaune
+                color = "FFEB9C"
             elif "NO NEED" in str(status):
-                color = "D9E1F2"  # Bleu
+                color = "D9E1F2"
             elif "VIDE" in str(status):
-                color = "E2EFDA"  # Vert clair
+                color = "E2EFDA"
             else:
                 color = "FFFFFF"
             
@@ -171,24 +169,10 @@ def export_to_colored_excel(df, filename):
             for col in range(1, worksheet.max_column + 1):
                 worksheet.cell(row=row, column=col).border = thin_border
         
-        # En-tête
         for col in range(1, worksheet.max_column + 1):
             header_cell = worksheet.cell(row=1, column=col)
             header_cell.font = Font(bold=True, color="FFFFFF")
             header_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-        
-        # Ajuster les largeurs
-        for column in worksheet.columns:
-            max_length = 0
-            column_letter = column[0].column_letter
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = min(max_length + 2, 50)
-            worksheet.column_dimensions[column_letter].width = adjusted_width
     
     output.seek(0)
     return output
@@ -217,89 +201,82 @@ if old_file:
                 
                 if st.button("🔍 Vérifier les positions CKD", use_container_width=True):
                     with st.spinner("Vérification en cours..."):
-                        results_df = validate_ckd_positions(ckd_df)
+                        st.session_state.results_df = validate_ckd_positions(ckd_df)
+                        st.session_state.verification_done = True
+                        st.session_state.show_problems = False
+                        st.rerun()
+                
+                # Afficher les résultats si la vérification a été faite
+                if st.session_state.verification_done and st.session_state.results_df is not None:
+                    results_df = st.session_state.results_df
+                    
+                    # Statistiques
+                    st.subheader("📊 Résumé de la vérification CKD")
+                    
+                    col1, col2, col3, col4, col5 = st.columns(5)
+                    total = len(results_df)
+                    conformes = len(results_df[results_df["Result"].str.contains("CONFORME", na=False)])
+                    erreurs = len(results_df[results_df["Result"].str.contains("ERREUR", na=False)])
+                    manques = len(results_df[results_df["Result"].str.contains("MANQUE", na=False)])
+                    trop = len(results_df[results_df["Result"].str.contains("TROP", na=False)])
+                    
+                    with col1:
+                        st.metric("📊 Total", total)
+                    with col2:
+                        st.metric("✅ Conformes", conformes)
+                    with col3:
+                        st.metric("❌ Erreurs", erreurs)
+                    with col4:
+                        st.metric("⚠️ Manque", manques)
+                    with col5:
+                        st.metric("⚠️ Trop", trop)
+                    
+                    st.markdown("---")
+                    
+                    # Checkbox avec callback
+                    def toggle_filter():
+                        st.session_state.show_problems = not st.session_state.show_problems
+                    
+                    st.checkbox("⚠️ Afficher uniquement les lignes non conformes", 
+                               value=st.session_state.show_problems,
+                               on_change=toggle_filter,
+                               key="filter_checkbox")
+                    
+                    st.subheader("🔍 Détail de la vérification CKD")
+                    
+                    # Sélection des colonnes
+                    display_cols = ["PN", "Description", "QTY", "Position", "QTY Calculated", "Result"]
+                    
+                    # Filtrer ou non
+                    if st.session_state.show_problems:
+                        # Lignes non conformes: ERREUR, MANQUE, TROP
+                        filtered_df = results_df[
+                            (results_df["Result"].str.contains("ERREUR", na=False)) |
+                            (results_df["Result"].str.contains("MANQUE", na=False)) |
+                            (results_df["Result"].str.contains("TROP", na=False))
+                        ][display_cols].copy()
                         
-                        # Statistiques
-                        st.subheader("📊 Résumé de la vérification CKD")
-                        
-                        col1, col2, col3, col4, col5 = st.columns(5)
-                        total = len(results_df)
-                        conformes = len(results_df[results_df["Status"] == "CONFORME"])
-                        erreurs = len(results_df[results_df["Status"] == "ERREUR"])
-                        manques = len(results_df[results_df["Status"] == "MANQUE"])
-                        trop = len(results_df[results_df["Status"] == "TROP"])
-                        no_need = len(results_df[results_df["Status"] == "NO NEED"])
-                        
-                        with col1:
-                            st.metric("📊 Total", total)
-                        with col2:
-                            st.metric("✅ Conformes", conformes)
-                        with col3:
-                            st.metric("❌ Erreurs", erreurs)
-                        with col4:
-                            st.metric("⚠️ Manque", manques)
-                        with col5:
-                            st.metric("⚠️ Trop", trop)
-                        
-                        st.markdown("---")
-                        
-                        # Sélection des colonnes à afficher
-                        display_cols = ["PN", "Description", "QTY", "Position", "QTY Calculated", "Result"]
-                        
-                        # Checkbox pour filtrer
-                        show_problems_only = st.checkbox("⚠️ Afficher uniquement les lignes non conformes", value=False)
-                        
-                        st.subheader("🔍 Détail de la vérification CKD")
-                        
-                        # FILTRAGE SIMPLE ET EFFICACE
-                        if show_problems_only:
-                            # Utiliser la colonne booléenne IsProblem
-                            filtered_df = results_df[results_df["IsProblem"] == True][display_cols].copy()
-                            
-                            if len(filtered_df) > 0:
-                                st.warning(f"⚠️ {len(filtered_df)} ligne(s) non conforme(s) sur {len(results_df)} total")
-                                
-                                # Style pour le tableau filtré
-                                def color_problem(val):
-                                    if "ERREUR" in str(val):
-                                        return 'background-color: #FFC7CE'
-                                    elif "MANQUE" in str(val) or "TROP" in str(val):
-                                        return 'background-color: #FFEB9C'
-                                    return ''
-                                
-                                st.dataframe(filtered_df.style.map(color_problem, subset=['Result']), use_container_width=True)
-                            else:
-                                st.success("✅ Aucune ligne non conforme trouvée !")
+                        if len(filtered_df) > 0:
+                            st.warning(f"⚠️ {len(filtered_df)} ligne(s) non conforme(s) sur {len(results_df)} total")
+                            st.dataframe(filtered_df, use_container_width=True)
                         else:
-                            # Afficher toutes les lignes
-                            all_df = results_df[display_cols].copy()
-                            
-                            def color_all(val):
-                                if "CONFORME" in str(val):
-                                    return 'background-color: #C6EFCE'
-                                elif "ERREUR" in str(val):
-                                    return 'background-color: #FFC7CE'
-                                elif "MANQUE" in str(val) or "TROP" in str(val):
-                                    return 'background-color: #FFEB9C'
-                                elif "NO NEED" in str(val):
-                                    return 'background-color: #D9E1F2'
-                                elif "VIDE" in str(val):
-                                    return 'background-color: #E2EFDA'
-                                return ''
-                            
-                            st.dataframe(all_df.style.map(color_all, subset=['Result']), use_container_width=True)
-                        
-                        # Export Excel
-                        colored_excel = export_to_colored_excel(results_df, "verification_positions_CKD.xlsx")
-                        
-                        col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
-                        with col_btn2:
-                            st.download_button(
-                                "📥 Télécharger le rapport Excel (coloré)",
-                                colored_excel,
-                                "verification_positions_CKD.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                            )
+                            st.success("✅ Aucune ligne non conforme trouvée !")
+                    else:
+                        # Toutes les lignes
+                        all_df = results_df[display_cols].copy()
+                        st.dataframe(all_df, use_container_width=True)
+                    
+                    # Export Excel
+                    colored_excel = export_to_colored_excel(results_df[display_cols], "verification_positions_CKD.xlsx")
+                    
+                    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
+                    with col_btn2:
+                        st.download_button(
+                            "📥 Télécharger le rapport Excel (coloré)",
+                            colored_excel,
+                            "verification_positions_CKD.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
                         
     except Exception as e:
         st.error(f"❌ Erreur: {str(e)}")
