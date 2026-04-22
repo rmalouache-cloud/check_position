@@ -32,7 +32,7 @@ with col_logo:
     
     if os.path.exists(logo_path):
         logo = Image.open(logo_path)
-        st.image(logo, width=60)
+        st.image(logo, width=100)
     else:
         # Si le fichier n'existe pas, afficher un émoji par défaut
         st.markdown("# 📺")
