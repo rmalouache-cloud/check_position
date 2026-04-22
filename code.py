@@ -28,7 +28,7 @@ st.markdown("""
 col_logo, col_title = st.columns([1, 5])
 with col_logo:
     # Chemin vers votre logo - à modifier selon l'emplacement de votre image
-    logo_path = "tv_logo.png"  # Mettez le chemin correct de votre image
+    logo_path = "logo.png"  # Mettez le chemin correct de votre image
     
     if os.path.exists(logo_path):
         logo = Image.open(logo_path)
