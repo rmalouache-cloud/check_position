@@ -150,10 +150,10 @@ t = lambda key: get_text(lang, key)
 # Logo and title
 col_logo, col_title = st.columns([1, 5])
 with col_logo:
-    logo_path = "tv_logo.png"
+    logo_path = "logo.png"
     if os.path.exists(logo_path):
         logo = Image.open(logo_path)
-        st.image(logo, width=60)
+        st.image(logo, width=120)
     else:
         st.markdown("# 📺")
         st.caption(f"{t('logo_not_found')} {logo_path}")
