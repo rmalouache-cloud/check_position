@@ -4,18 +4,18 @@ import io
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Font, Border, Side, Alignment
 from openpyxl.styles.colors import Color
+from PIL import Image
+import os
 
 st.set_page_config(page_title="CKD Position Validator", layout="wide")
 
 # Style CSS personnalisé pour Streamlit
 st.markdown("""
 <style>
-    /* Style pour le tableau Streamlit */
     .dataframe {
         font-size: 14px;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-    /* Animation pour les cartes de statistiques */
     .stMetric {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 10px;
@@ -24,7 +24,21 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("# 🎨 Vérificateur de Positions CKD")
+# Logo local (Option 2)
+col_logo, col_title = st.columns([1, 5])
+with col_logo:
+    # Chemin vers votre logo - à modifier selon l'emplacement de votre image
+    logo_path = "tv_logo.png"  # Mettez le chemin correct de votre image
+    
+    if os.path.exists(logo_path):
+        logo = Image.open(logo_path)
+        st.image(logo, width=60)
+    else:
+        # Si le fichier n'existe pas, afficher un émoji par défaut
+        st.markdown("# 📺")
+        st.caption(f"Logo non trouvé: {logo_path}")
+with col_title:
+    st.markdown("# Vérificateur de Positions CKD")
 st.markdown("Vérifie que le nombre de positions correspond à la quantité pour les composants CKD uniquement")
 
 # Initialiser session state
@@ -336,14 +350,13 @@ if old_file:
                     
                     st.markdown("---")
                     
-                    # Checkbox pour filtrer - SANS CALLBACK
+                    # Checkbox pour filtrer
                     show_problems = st.checkbox(
                         "⚠️ Afficher uniquement les lignes non conformes", 
                         value=st.session_state.show_problems,
                         key="filter_checkbox"
                     )
                     
-                    # Mettre à jour session state
                     st.session_state.show_problems = show_problems
                     
                     st.subheader("🔍 Détail de la vérification CKD")
