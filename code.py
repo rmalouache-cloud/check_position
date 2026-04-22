@@ -3,6 +3,7 @@ import pandas as pd
 import io
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Font, Border, Side, Alignment
+from openpyxl.styles.colors import Color
 
 st.set_page_config(page_title="CKD Position Validator", layout="wide")
 
@@ -98,24 +99,24 @@ def validate_ckd_positions(df):
         nb_positions = len(positions)
         positions_str = safe_join(positions)
         
-        # Déterminer le résultat avec émojis colorés
+        # Déterminer le résultat avec des symboles colorés
         if is_non_comp:
-            result_detail = "📌 NO NEED / NOT APPLICABLE"
+            result_detail = "◉ NO NEED / NOT APPLICABLE"
             result_class = "no-need"
         elif nb_positions == 0 and qty == 0:
-            result_detail = "✅ VIDE"
+            result_detail = "○ VIDE"
             result_class = "vide"
         elif nb_positions == 0 and qty > 0:
-            result_detail = "❌ ERREUR - Aucune position"
+            result_detail = "● ERREUR - Aucune position"
             result_class = "erreur"
         elif nb_positions == qty:
-            result_detail = "✅ CONFORME"
+            result_detail = "✔ CONFORME"
             result_class = "conforme"
         elif nb_positions < qty:
-            result_detail = f"⚠️ MANQUE - {int(qty - nb_positions)} position(s) manquante(s)"
+            result_detail = f"⚠ MANQUE - {int(qty - nb_positions)} position(s) manquante(s)"
             result_class = "manque"
         else:
-            result_detail = f"⚠️ TROP - {int(nb_positions - qty)} position(s) en excès"
+            result_detail = f"⚠ TROP - {int(nb_positions - qty)} position(s) en excès"
             result_class = "trop"
         
         results.append({
@@ -131,36 +132,8 @@ def validate_ckd_positions(df):
     return pd.DataFrame(results)
 
 def export_to_colored_excel(df, filename):
-    """Exporte vers Excel avec fond coloré et texte noir"""
+    """Exporte vers Excel avec fond coloré ET texte coloré pour les symboles"""
     output = io.BytesIO()
-    
-    # Définir les couleurs de fond (plus douces)
-    color_map = {
-        "conforme": {
-            "fill": "C6EFCE",  # Vert clair
-            "text": "✅ CONFORME"
-        },
-        "erreur": {
-            "fill": "FFC7CE",  # Rouge clair
-            "text": "❌ ERREUR - Aucune position"
-        },
-        "manque": {
-            "fill": "FFEB9C",  # Jaune
-            "text": "⚠️ MANQUE"
-        },
-        "trop": {
-            "fill": "FFEB9C",  # Jaune
-            "text": "⚠️ TROP"
-        },
-        "no-need": {
-            "fill": "D9E1F2",  # Bleu clair
-            "text": "📌 NO NEED / NOT APPLICABLE"
-        },
-        "vide": {
-            "fill": "E2EFDA",  # Vert très clair
-            "text": "✅ VIDE"
-        }
-    }
     
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, sheet_name='Verification_CKD', index=False)
@@ -168,37 +141,67 @@ def export_to_colored_excel(df, filename):
         workbook = writer.book
         worksheet = writer.sheets['Verification_CKD']
         
-        # Police noire par défaut
-        black_font = Font(color="000000", size=11)
-        
-        # Appliquer les couleurs à chaque ligne selon son statut
+        # Parcourir les lignes
         for row_idx in range(2, worksheet.max_row + 1):
             result_cell = worksheet.cell(row=row_idx, column=6)  # Colonne Result
             result_text = str(result_cell.value)
             
-            # Déterminer la couleur de fond en fonction du texte
-            if "CONFORME" in result_text and "NO NEED" not in result_text:
-                fill_color = "C6EFCE"
+            # Déterminer la couleur de fond et la couleur du texte/symbole
+            if "CONFORME" in result_text:
+                fill_color = "C6EFCE"  # Vert clair
+                symbol_color = "006100"  # Vert foncé pour ✔
             elif "ERREUR" in result_text:
-                fill_color = "FFC7CE"
-            elif "MANQUE" in result_text:
-                fill_color = "FFEB9C"
-            elif "TROP" in result_text:
-                fill_color = "FFEB9C"
+                fill_color = "FFC7CE"  # Rouge clair
+                symbol_color = "9C0006"  # Rouge foncé pour ●
+            elif "MANQUE" in result_text or "TROP" in result_text:
+                fill_color = "FFEB9C"  # Jaune
+                symbol_color = "9C6500"  # Orange foncé pour ⚠
             elif "NO NEED" in result_text:
-                fill_color = "D9E1F2"
+                fill_color = "D9E1F2"  # Bleu clair
+                symbol_color = "1A3A5C"  # Bleu foncé pour ◉
             elif "VIDE" in result_text:
-                fill_color = "E2EFDA"
+                fill_color = "E2EFDA"  # Vert très clair
+                symbol_color = "006100"  # Vert foncé pour ○
             else:
                 fill_color = "FFFFFF"
+                symbol_color = "000000"
             
-            # Appliquer le remplissage (uniquement fond, pas de couleur de texte)
+            # Appliquer le remplissage de fond
             fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
             
             for col in range(1, worksheet.max_column + 1):
                 cell = worksheet.cell(row=row_idx, column=col)
                 cell.fill = fill
-                cell.font = black_font  # Texte noir
+                
+                # Pour la colonne Result, colorer le premier caractère (le symbole)
+                if col == 6:
+                    text = str(cell.value)
+                    if len(text) > 0:
+                        # Créer un texte avec le premier caractère coloré
+                        first_char = text[0]
+                        rest_text = text[1:]
+                        
+                        # Appliquer la couleur au symbole
+                        if first_char == '✔':
+                            cell.font = Font(color=Color(rgb="006100"), bold=True)
+                            cell.value = text
+                        elif first_char == '●':
+                            cell.font = Font(color=Color(rgb="9C0006"), bold=True)
+                            cell.value = text
+                        elif first_char == '⚠':
+                            cell.font = Font(color=Color(rgb="9C6500"), bold=True)
+                            cell.value = text
+                        elif first_char == '◉':
+                            cell.font = Font(color=Color(rgb="1A3A5C"), bold=True)
+                            cell.value = text
+                        elif first_char == '○':
+                            cell.font = Font(color=Color(rgb="006100"), bold=True)
+                            cell.value = text
+                        else:
+                            cell.font = Font(color="000000")
+                else:
+                    cell.font = Font(color="000000")
+                
                 cell.alignment = Alignment(horizontal='left', vertical='center')
             
             # Ajouter des bordures
@@ -211,7 +214,7 @@ def export_to_colored_excel(df, filename):
             for col in range(1, worksheet.max_column + 1):
                 worksheet.cell(row=row_idx, column=col).border = thin_border
         
-        # Style de l'en-tête (fond bleu foncé, texte blanc)
+        # Style de l'en-tête
         header_fill = PatternFill(start_color="2C3E50", end_color="2C3E50", fill_type="solid")
         header_font = Font(color="FFFFFF", bold=True, size=11)
         
@@ -228,7 +231,7 @@ def export_to_colored_excel(df, filename):
             'C': 10,  # QTY
             'D': 35,  # Position
             'E': 16,  # QTY Calculated
-            'F': 45,  # Result
+            'F': 50,  # Result
         }
         
         for col_letter, width in column_widths.items():
@@ -241,19 +244,17 @@ def export_to_colored_excel(df, filename):
     return output
 
 def color_result_css(val):
-    """Style CSS pour le tableau Streamlit"""
-    if "CONFORME" in str(val) and "NO NEED" not in str(val):
-        return 'background: #C6EFCE; color: #1B5E20; font-weight: bold; border-radius: 5px; padding: 5px;'
+    """Style CSS pour le tableau Streamlit avec émojis colorés"""
+    if "CONFORME" in str(val):
+        return 'background: #C6EFCE; color: #006100; font-weight: bold; border-radius: 5px; padding: 5px;'
     elif "ERREUR" in str(val):
-        return 'background: #FFC7CE; color: #8B0000; font-weight: bold; border-radius: 5px; padding: 5px;'
-    elif "MANQUE" in str(val):
-        return 'background: #FFEB9C; color: #856404; font-weight: bold; border-radius: 5px; padding: 5px;'
-    elif "TROP" in str(val):
-        return 'background: #FFEB9C; color: #856404; font-weight: bold; border-radius: 5px; padding: 5px;'
+        return 'background: #FFC7CE; color: #9C0006; font-weight: bold; border-radius: 5px; padding: 5px;'
+    elif "MANQUE" in str(val) or "TROP" in str(val):
+        return 'background: #FFEB9C; color: #9C6500; font-weight: bold; border-radius: 5px; padding: 5px;'
     elif "NO NEED" in str(val):
         return 'background: #D9E1F2; color: #1A3A5C; font-weight: bold; border-radius: 5px; padding: 5px;'
     elif "VIDE" in str(val):
-        return 'background: #E2EFDA; color: #1B5E20; font-weight: bold; border-radius: 5px; padding: 5px;'
+        return 'background: #E2EFDA; color: #006100; font-weight: bold; border-radius: 5px; padding: 5px;'
     return ''
 
 if old_file:
@@ -294,7 +295,7 @@ if old_file:
                     
                     col1, col2, col3, col4, col5 = st.columns(5)
                     total = len(results_df)
-                    conformes = len(results_df[results_df["Result"].str.contains("CONFORME", na=False) & ~results_df["Result"].str.contains("NO NEED", na=False)])
+                    conformes = len(results_df[results_df["Result"].str.contains("CONFORME", na=False)])
                     erreurs = len(results_df[results_df["Result"].str.contains("ERREUR", na=False)])
                     manques = len(results_df[results_df["Result"].str.contains("MANQUE", na=False)])
                     trop = len(results_df[results_df["Result"].str.contains("TROP", na=False)])
@@ -302,13 +303,13 @@ if old_file:
                     with col1:
                         st.metric("📊 Total", total)
                     with col2:
-                        st.metric("✅ Conformes", conformes)
+                        st.metric("✔ Conformes", conformes)
                     with col3:
-                        st.metric("❌ Erreurs", erreurs)
+                        st.metric("● Erreurs", erreurs)
                     with col4:
-                        st.metric("⚠️ Manque", manques)
+                        st.metric("⚠ Manque", manques)
                     with col5:
-                        st.metric("⚠️ Trop", trop)
+                        st.metric("⚠ Trop", trop)
                     
                     st.markdown("---")
                     
@@ -319,7 +320,7 @@ if old_file:
                     
                     col_check, col_info = st.columns([1, 3])
                     with col_check:
-                        st.checkbox("⚠️ Afficher uniquement les lignes non conformes", 
+                        st.checkbox("⚠ Afficher uniquement les lignes non conformes", 
                                    value=st.session_state.show_problems,
                                    on_change=toggle_filter,
                                    key="filter_checkbox")
@@ -331,7 +332,6 @@ if old_file:
                     
                     # Filtrer ou non
                     if st.session_state.show_problems:
-                        # Lignes non conformes: ERREUR, MANQUE, TROP
                         filtered_df = results_df[
                             (results_df["Result"].str.contains("ERREUR", na=False)) |
                             (results_df["Result"].str.contains("MANQUE", na=False)) |
@@ -339,14 +339,13 @@ if old_file:
                         ][display_cols].copy()
                         
                         if len(filtered_df) > 0:
-                            st.warning(f"⚠️ {len(filtered_df)} ligne(s) non conforme(s) sur {len(results_df)} total")
+                            st.warning(f"⚠ {len(filtered_df)} ligne(s) non conforme(s) sur {len(results_df)} total")
                             styled_filtered = filtered_df.style.map(color_result_css, subset=['Result'])
                             st.dataframe(styled_filtered, use_container_width=True)
                         else:
-                            st.success("✅ Aucune ligne non conforme trouvée !")
+                            st.success("✔ Aucune ligne non conforme trouvée !")
                             st.info(f"✨ Toutes les {len(results_df)} lignes sont conformes")
                     else:
-                        # Toutes les lignes
                         styled_df = results_df[display_cols].copy().style.map(color_result_css, subset=['Result'])
                         st.dataframe(styled_df, use_container_width=True)
                     
