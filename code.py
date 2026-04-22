@@ -178,7 +178,7 @@ if old_file:
                         display_cols = ["PN", "Description", "QTY", "Position", "QTY Calculated", "Result"]
                         display_df = results_df[display_cols].copy()
                         
-                        # Afficher avec style conditionnel
+                        # CORRECTION ICI : utiliser map au lieu de applymap
                         def color_result(val):
                             if "CONFORME" in str(val):
                                 return 'background-color: #C6EFCE'
@@ -188,7 +188,8 @@ if old_file:
                                 return 'background-color: #FFEB9C'
                             return ''
                         
-                        styled_df = display_df.style.applymap(color_result, subset=['Result'])
+                        # Appliquer le style avec map (nouvelle méthode)
+                        styled_df = display_df.style.map(color_result, subset=['Result'])
                         st.dataframe(styled_df, use_container_width=True)
                         
                         # Option pour filtrer les problèmes uniquement
@@ -197,7 +198,8 @@ if old_file:
                             problem_df = display_df[~display_df["Result"].str.contains("CONFORME", na=False)]
                             if len(problem_df) > 0:
                                 st.warning(f"⚠️ {len(problem_df)} ligne(s) avec problèmes")
-                                st.dataframe(problem_df.style.applymap(color_result, subset=['Result']), use_container_width=True)
+                                styled_problem_df = problem_df.style.map(color_result, subset=['Result'])
+                                st.dataframe(styled_problem_df, use_container_width=True)
                             else:
                                 st.success("✅ Toutes les lignes sont conformes !")
                         
