@@ -3,26 +3,8 @@ import pandas as pd
 import io
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Font, Border, Side, Alignment
-from openpyxl.formatting.rule import ColorScaleRule, CellIsRule
 
 st.set_page_config(page_title="CKD Position Validator", layout="wide")
-
-# Style CSS personnalisé pour Streamlit
-st.markdown("""
-<style>
-    /* Style pour le tableau Streamlit */
-    .dataframe {
-        font-size: 14px;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    /* Animation pour les cartes de statistiques */
-    .stMetric {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 10px;
-        padding: 10px;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 st.markdown("# 🎨 Vérificateur de Positions CKD")
 st.markdown("Vérifie que le nombre de positions correspond à la quantité pour les composants CKD uniquement")
@@ -116,7 +98,7 @@ def validate_ckd_positions(df):
         nb_positions = len(positions)
         positions_str = safe_join(positions)
         
-        # Déterminer le résultat
+        # Déterminer le résultat avec émojis colorés
         if is_non_comp:
             result_detail = "📌 NO NEED / NOT APPLICABLE"
             result_class = "no-need"
@@ -149,39 +131,33 @@ def validate_ckd_positions(df):
     return pd.DataFrame(results)
 
 def export_to_colored_excel(df, filename):
-    """Exporte vers Excel avec des couleurs vives et professionnelles"""
+    """Exporte vers Excel avec fond coloré et texte noir"""
     output = io.BytesIO()
     
-    # Définir des couleurs plus vives
+    # Définir les couleurs de fond (plus douces)
     color_map = {
         "conforme": {
-            "fill": "92D050",  # Vert vif
-            "font": "FFFFFF",
+            "fill": "C6EFCE",  # Vert clair
             "text": "✅ CONFORME"
         },
         "erreur": {
-            "fill": "FF6B6B",  # Rouge vif
-            "font": "FFFFFF",
+            "fill": "FFC7CE",  # Rouge clair
             "text": "❌ ERREUR - Aucune position"
         },
         "manque": {
-            "fill": "FFB347",  # Orange vif
-            "font": "FFFFFF",
+            "fill": "FFEB9C",  # Jaune
             "text": "⚠️ MANQUE"
         },
         "trop": {
-            "fill": "FFB347",  # Orange vif
-            "font": "FFFFFF",
+            "fill": "FFEB9C",  # Jaune
             "text": "⚠️ TROP"
         },
         "no-need": {
-            "fill": "5B9BD5",  # Bleu vif
-            "font": "FFFFFF",
-            "text": "📌 NO NEED"
+            "fill": "D9E1F2",  # Bleu clair
+            "text": "📌 NO NEED / NOT APPLICABLE"
         },
         "vide": {
-            "fill": "C5E0B4",  # Vert clair
-            "font": "000000",
+            "fill": "E2EFDA",  # Vert très clair
             "text": "✅ VIDE"
         }
     }
@@ -192,56 +168,50 @@ def export_to_colored_excel(df, filename):
         workbook = writer.book
         worksheet = writer.sheets['Verification_CKD']
         
+        # Police noire par défaut
+        black_font = Font(color="000000", size=11)
+        
         # Appliquer les couleurs à chaque ligne selon son statut
         for row_idx in range(2, worksheet.max_row + 1):
-            # Récupérer la classe du résultat depuis la colonne cachée ou depuis le texte
             result_cell = worksheet.cell(row=row_idx, column=6)  # Colonne Result
             result_text = str(result_cell.value)
             
-            # Déterminer la couleur en fonction du texte
+            # Déterminer la couleur de fond en fonction du texte
             if "CONFORME" in result_text and "NO NEED" not in result_text:
-                color = "92D050"
-                font_color = "FFFFFF"
+                fill_color = "C6EFCE"
             elif "ERREUR" in result_text:
-                color = "FF6B6B"
-                font_color = "FFFFFF"
+                fill_color = "FFC7CE"
             elif "MANQUE" in result_text:
-                color = "FFB347"
-                font_color = "FFFFFF"
+                fill_color = "FFEB9C"
             elif "TROP" in result_text:
-                color = "FFB347"
-                font_color = "FFFFFF"
+                fill_color = "FFEB9C"
             elif "NO NEED" in result_text:
-                color = "5B9BD5"
-                font_color = "FFFFFF"
+                fill_color = "D9E1F2"
             elif "VIDE" in result_text:
-                color = "C5E0B4"
-                font_color = "000000"
+                fill_color = "E2EFDA"
             else:
-                color = "FFFFFF"
-                font_color = "000000"
+                fill_color = "FFFFFF"
             
-            # Appliquer le remplissage et la couleur de police
-            fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
-            font = Font(color=font_color, bold=True)
+            # Appliquer le remplissage (uniquement fond, pas de couleur de texte)
+            fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
             
             for col in range(1, worksheet.max_column + 1):
                 cell = worksheet.cell(row=row_idx, column=col)
                 cell.fill = fill
-                if font_color == "FFFFFF":
-                    cell.font = font
+                cell.font = black_font  # Texte noir
+                cell.alignment = Alignment(horizontal='left', vertical='center')
             
             # Ajouter des bordures
             thin_border = Border(
-                left=Side(style='thin', color='DDDDDD'),
-                right=Side(style='thin', color='DDDDDD'),
-                top=Side(style='thin', color='DDDDDD'),
-                bottom=Side(style='thin', color='DDDDDD')
+                left=Side(style='thin', color='CCCCCC'),
+                right=Side(style='thin', color='CCCCCC'),
+                top=Side(style='thin', color='CCCCCC'),
+                bottom=Side(style='thin', color='CCCCCC')
             )
             for col in range(1, worksheet.max_column + 1):
                 worksheet.cell(row=row_idx, column=col).border = thin_border
         
-        # Style de l'en-tête
+        # Style de l'en-tête (fond bleu foncé, texte blanc)
         header_fill = PatternFill(start_color="2C3E50", end_color="2C3E50", fill_type="solid")
         header_font = Font(color="FFFFFF", bold=True, size=11)
         
@@ -253,12 +223,12 @@ def export_to_colored_excel(df, filename):
         
         # Ajuster les largeurs des colonnes
         column_widths = {
-            'A': 20,  # PN
-            'B': 35,  # Description
+            'A': 22,  # PN
+            'B': 40,  # Description
             'C': 10,  # QTY
-            'D': 30,  # Position
-            'E': 15,  # QTY Calculated
-            'F': 40,  # Result
+            'D': 35,  # Position
+            'E': 16,  # QTY Calculated
+            'F': 45,  # Result
         }
         
         for col_letter, width in column_widths.items():
@@ -271,19 +241,19 @@ def export_to_colored_excel(df, filename):
     return output
 
 def color_result_css(val):
-    """Style CSS pour le tableau Streamlit - plus élégant"""
+    """Style CSS pour le tableau Streamlit"""
     if "CONFORME" in str(val) and "NO NEED" not in str(val):
-        return 'background: linear-gradient(135deg, #92D050 0%, #7CB83D 100%); color: white; font-weight: bold; border-radius: 5px; padding: 5px;'
+        return 'background: #C6EFCE; color: #1B5E20; font-weight: bold; border-radius: 5px; padding: 5px;'
     elif "ERREUR" in str(val):
-        return 'background: linear-gradient(135deg, #FF6B6B 0%, #E55555 100%); color: white; font-weight: bold; border-radius: 5px; padding: 5px;'
+        return 'background: #FFC7CE; color: #8B0000; font-weight: bold; border-radius: 5px; padding: 5px;'
     elif "MANQUE" in str(val):
-        return 'background: linear-gradient(135deg, #FFB347 0%, #FF9500 100%); color: white; font-weight: bold; border-radius: 5px; padding: 5px;'
+        return 'background: #FFEB9C; color: #856404; font-weight: bold; border-radius: 5px; padding: 5px;'
     elif "TROP" in str(val):
-        return 'background: linear-gradient(135deg, #FFB347 0%, #FF9500 100%); color: white; font-weight: bold; border-radius: 5px; padding: 5px;'
+        return 'background: #FFEB9C; color: #856404; font-weight: bold; border-radius: 5px; padding: 5px;'
     elif "NO NEED" in str(val):
-        return 'background: linear-gradient(135deg, #5B9BD5 0%, #3A7BC8 100%); color: white; font-weight: bold; border-radius: 5px; padding: 5px;'
+        return 'background: #D9E1F2; color: #1A3A5C; font-weight: bold; border-radius: 5px; padding: 5px;'
     elif "VIDE" in str(val):
-        return 'background: linear-gradient(135deg, #C5E0B4 0%, #A8D08D 100%); color: #2C3E50; font-weight: bold; border-radius: 5px; padding: 5px;'
+        return 'background: #E2EFDA; color: #1B5E20; font-weight: bold; border-radius: 5px; padding: 5px;'
     return ''
 
 if old_file:
@@ -319,7 +289,7 @@ if old_file:
                 if st.session_state.verification_done and st.session_state.results_df is not None:
                     results_df = st.session_state.results_df
                     
-                    # Statistiques avec style
+                    # Statistiques
                     st.subheader("📊 Résumé de la vérification CKD")
                     
                     col1, col2, col3, col4, col5 = st.columns(5)
@@ -328,14 +298,13 @@ if old_file:
                     erreurs = len(results_df[results_df["Result"].str.contains("ERREUR", na=False)])
                     manques = len(results_df[results_df["Result"].str.contains("MANQUE", na=False)])
                     trop = len(results_df[results_df["Result"].str.contains("TROP", na=False)])
-                    no_need = len(results_df[results_df["Result"].str.contains("NO NEED", na=False)])
                     
                     with col1:
                         st.metric("📊 Total", total)
                     with col2:
                         st.metric("✅ Conformes", conformes)
                     with col3:
-                        st.metric("❌ Erreurs", erreurs, delta="À corriger" if erreurs > 0 else None)
+                        st.metric("❌ Erreurs", erreurs)
                     with col4:
                         st.metric("⚠️ Manque", manques)
                     with col5:
@@ -371,26 +340,23 @@ if old_file:
                         
                         if len(filtered_df) > 0:
                             st.warning(f"⚠️ {len(filtered_df)} ligne(s) non conforme(s) sur {len(results_df)} total")
-                            # Appliquer le style CSS au tableau filtré
                             styled_filtered = filtered_df.style.map(color_result_css, subset=['Result'])
                             st.dataframe(styled_filtered, use_container_width=True)
                         else:
                             st.success("✅ Aucune ligne non conforme trouvée !")
-                            st.balloons()  # Petite animation de succès
-                            # Afficher quand même un message informatif
-                            st.info(f"✨ Toutes les {len(results_df)} lignes sont conformes ou non applicables")
+                            st.info(f"✨ Toutes les {len(results_df)} lignes sont conformes")
                     else:
-                        # Toutes les lignes avec style CSS
+                        # Toutes les lignes
                         styled_df = results_df[display_cols].copy().style.map(color_result_css, subset=['Result'])
                         st.dataframe(styled_df, use_container_width=True)
                     
-                    # Export Excel avec couleurs vives
+                    # Export Excel
                     colored_excel = export_to_colored_excel(results_df[display_cols], "verification_positions_CKD.xlsx")
                     
                     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
                     with col_btn2:
                         st.download_button(
-                            "📥 Télécharger le rapport Excel (coloré)",
+                            "📥 Télécharger le rapport Excel",
                             colored_excel,
                             "verification_positions_CKD.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
