@@ -7,6 +7,23 @@ from openpyxl.styles.colors import Color
 
 st.set_page_config(page_title="CKD Position Validator", layout="wide")
 
+# Style CSS personnalisé pour Streamlit
+st.markdown("""
+<style>
+    /* Style pour le tableau Streamlit */
+    .dataframe {
+        font-size: 14px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    /* Animation pour les cartes de statistiques */
+    .stMetric {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 10px;
+        padding: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.markdown("# 🎨 Vérificateur de Positions CKD")
 st.markdown("Vérifie que le nombre de positions correspond à la quantité pour les composants CKD uniquement")
 
@@ -246,17 +263,19 @@ def export_to_colored_excel(df, filename):
     return output
 
 def color_result_css(val):
-    """Style CSS pour le tableau Streamlit (avec émojis)"""
-    if "CONFORME" in str(val):
-        return 'background: #C6EFCE; color: #006100; font-weight: bold; border-radius: 5px; padding: 5px;'
+    """Style CSS pour le tableau Streamlit - avec dégradés"""
+    if "CONFORME" in str(val) and "NO NEED" not in str(val):
+        return 'background: linear-gradient(135deg, #92D050 0%, #7CB83D 100%); color: white; font-weight: bold; border-radius: 5px; padding: 5px;'
     elif "ERREUR" in str(val):
-        return 'background: #FFC7CE; color: #9C0006; font-weight: bold; border-radius: 5px; padding: 5px;'
-    elif "MANQUE" in str(val) or "TROP" in str(val):
-        return 'background: #FFEB9C; color: #9C6500; font-weight: bold; border-radius: 5px; padding: 5px;'
+        return 'background: linear-gradient(135deg, #FF6B6B 0%, #E55555 100%); color: white; font-weight: bold; border-radius: 5px; padding: 5px;'
+    elif "MANQUE" in str(val):
+        return 'background: linear-gradient(135deg, #FFB347 0%, #FF9500 100%); color: white; font-weight: bold; border-radius: 5px; padding: 5px;'
+    elif "TROP" in str(val):
+        return 'background: linear-gradient(135deg, #FFB347 0%, #FF9500 100%); color: white; font-weight: bold; border-radius: 5px; padding: 5px;'
     elif "NO NEED" in str(val):
-        return 'background: #D9E1F2; color: #1A3A5C; font-weight: bold; border-radius: 5px; padding: 5px;'
+        return 'background: linear-gradient(135deg, #5B9BD5 0%, #3A7BC8 100%); color: white; font-weight: bold; border-radius: 5px; padding: 5px;'
     elif "VIDE" in str(val):
-        return 'background: #E2EFDA; color: #006100; font-weight: bold; border-radius: 5px; padding: 5px;'
+        return 'background: linear-gradient(135deg, #C5E0B4 0%, #A8D08D 100%); color: #2C3E50; font-weight: bold; border-radius: 5px; padding: 5px;'
     return ''
 
 if old_file:
@@ -294,22 +313,23 @@ if old_file:
                 if st.session_state.verification_done and st.session_state.results_df is not None:
                     results_df = st.session_state.results_df
                     
-                    # Statistiques
+                    # Statistiques avec style (version que vous aimez)
                     st.subheader("📊 Résumé de la vérification CKD")
                     
                     col1, col2, col3, col4, col5 = st.columns(5)
                     total = len(results_df)
-                    conformes = len(results_df[results_df["Result_Display"].str.contains("CONFORME", na=False)])
+                    conformes = len(results_df[results_df["Result_Display"].str.contains("CONFORME", na=False) & ~results_df["Result_Display"].str.contains("NO NEED", na=False)])
                     erreurs = len(results_df[results_df["Result_Display"].str.contains("ERREUR", na=False)])
                     manques = len(results_df[results_df["Result_Display"].str.contains("MANQUE", na=False)])
                     trop = len(results_df[results_df["Result_Display"].str.contains("TROP", na=False)])
+                    no_need = len(results_df[results_df["Result_Display"].str.contains("NO NEED", na=False)])
                     
                     with col1:
                         st.metric("📊 Total", total)
                     with col2:
                         st.metric("✅ Conformes", conformes)
                     with col3:
-                        st.metric("❌ Erreurs", erreurs)
+                        st.metric("❌ Erreurs", erreurs, delta="À corriger" if erreurs > 0 else None)
                     with col4:
                         st.metric("⚠️ Manque", manques)
                     with col5:
