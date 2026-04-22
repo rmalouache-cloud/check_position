@@ -276,14 +276,11 @@ if old_file:
                         with col5:
                             st.metric("📌 Non applicable", no_need)
                         
-                        # Afficher le tableau des résultats
-                        st.subheader("🔍 Détail de la vérification CKD")
-                        
                         # Sélectionner uniquement les colonnes souhaitées
                         display_cols = ["PN", "Description", "QTY", "Position", "QTY Calculated", "Result"]
                         display_df = results_df[display_cols].copy()
                         
-                        # CORRECTION : Utiliser map au lieu de applymap
+                        # Définir la fonction de couleur
                         def color_result(val):
                             if "CONFORME" in str(val):
                                 return 'background-color: #C6EFCE'
@@ -295,40 +292,44 @@ if old_file:
                                 return 'background-color: #D9E1F2'
                             return ''
                         
-                        # Appliquer le style avec map
-                        styled_df = display_df.style.map(color_result, subset=['Result'])
-                        st.dataframe(styled_df, use_container_width=True)
-                        
-                        # Option pour filtrer les problèmes uniquement (CORRIGÉ)
+                        # Option pour filtrer les problèmes uniquement
                         show_problems_only = st.checkbox("⚠️ Afficher uniquement les lignes non conformes", value=False)
                         
+                        st.subheader("🔍 Détail de la vérification CKD")
+                        
+                        # AFFICHAGE D'UN SEUL TABLEAU (CORRIGÉ)
                         if show_problems_only:
                             # Filtrer les lignes non conformes (erreurs, manques, trop)
-                            problem_df = display_df[
+                            filtered_df = display_df[
                                 (display_df["Result"].str.contains("ERREUR", na=False)) |
                                 (display_df["Result"].str.contains("MANQUE", na=False)) |
                                 (display_df["Result"].str.contains("TROP", na=False))
                             ].copy()
                             
-                            if len(problem_df) > 0:
-                                st.warning(f"⚠️ {len(problem_df)} ligne(s) avec problèmes")
-                                styled_problem_df = problem_df.style.map(color_result, subset=['Result'])
-                                st.dataframe(styled_problem_df, use_container_width=True)
+                            if len(filtered_df) > 0:
+                                st.warning(f"⚠️ {len(filtered_df)} ligne(s) avec problèmes")
+                                styled_filtered_df = filtered_df.style.map(color_result, subset=['Result'])
+                                st.dataframe(styled_filtered_df, use_container_width=True)
                             else:
                                 st.success("✅ Aucune ligne non conforme trouvée !")
+                                # Afficher un tableau vide avec un message
+                                st.info("Toutes les lignes sont conformes ou non applicables")
                         else:
-                            # Afficher le tableau complet avec style
+                            # Afficher toutes les lignes avec style
+                            styled_df = display_df.style.map(color_result, subset=['Result'])
                             st.dataframe(styled_df, use_container_width=True)
                         
                         # Export Excel avec couleurs
-                        colored_excel = export_to_colored_excel(results_df[display_cols], "verification_positions_CKD.xlsx")
+                        colored_excel = export_to_colored_excel(display_df, "verification_positions_CKD.xlsx")
                         
-                        st.download_button(
-                            "📥 Télécharger le rapport Excel (coloré)",
-                            colored_excel,
-                            "verification_positions_CKD.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
+                        col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
+                        with col_btn2:
+                            st.download_button(
+                                "📥 Télécharger le rapport Excel ",
+                                colored_excel,
+                                "verification_positions_CKD.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
                         
                         # Afficher les exemples expliqués
                         with st.expander("ℹ️ Comprendre la vérification CKD"):
